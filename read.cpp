@@ -1,4 +1,4 @@
-﻿#include <dirent.h>
+#include <dirent.h>
 #include <vector>
 #include <list>
 #include <string.h>
@@ -34,6 +34,60 @@ class Event {
     Event() {
       isThisScreenOn = false;
       isNextScreenOn = false;
+    }
+
+    // 將重複的 app 刪掉
+    bool sortOut() {
+      bool dataGood = true;
+      for (int i=0; i<int(caseVec.size())-1; i++) {
+        int namePoint = caseVec.at(i).namePoint;
+        for (int j=i+1; j<caseVec.size(); j++) {
+          // 找到同樣 name 的 app
+          // 保留 oom_score 比較小的
+          // oom_score 一樣的話 就保留 appPid 比較小的
+          if (namePoint == caseVec.at(j).namePoint) {
+            /*if (dataGood) {
+              cout << "-------" << caseVec.size() <<endl;
+              for (int k=0; k<caseVec.size(); k++) {
+                cout << caseVec.at(k).nextApp->oom_score << " : " << caseVec.at(k).nextApp->namePoint <<endl;
+              }
+            }*/
+
+            int front = caseVec.at(i).nextApp->oom_score;
+            int behind = caseVec.at(j).nextApp->oom_score;
+            if (front < behind) {
+              caseVec.erase(caseVec.begin()+j);
+              j--;
+            } else if (front > behind) {
+              caseVec.erase(caseVec.begin()+i);
+              i--;
+              break;
+            } else {
+              front = caseVec.at(i).nextApp->pid;
+              behind = caseVec.at(j).nextApp->pid;
+              if (front < behind) {
+                caseVec.erase(caseVec.begin()+j);
+                j--;
+              } else if (front > behind) {
+                caseVec.erase(caseVec.begin()+i);
+                i--;
+                break;
+              } else { // 都一樣的話 丟後面的 雖然不太可能發生
+                caseVec.erase(caseVec.begin()+j);
+                j--;
+              }
+            }
+            dataGood = false;
+          }
+        }
+      }
+      /*if (!dataGood) {
+        cout << "new--" << caseVec.size() <<endl;
+        for (int k=0; k<caseVec.size(); k++) {
+          cout << caseVec.at(k).nextApp->oom_score << " : " << caseVec.at(k).nextApp->namePoint <<endl;
+        }
+      }*/
+      return dataGood;
     }
 };
 
@@ -83,6 +137,10 @@ class CollectionAllData {
     vector<string> allAppNameVec;       // 用 collecFileVec 的資料收集所有的 app's name
     vector<Point> allPatternVec;        // 所有 pattern
     vector<AppDetail> allAppDetailVec;  // 所有 app 的詳細資料
+    /**
+     * allEventVec 主要是放入了 發生過的事件 並依序放好
+     * 其中的 Event 是使用者剛好切換 APP 或是開關螢幕也會知道
+     */
     vector<Event> allEventVec;          // 先都裝到這裡 allEventVec
     
     CollectionAllData() {
@@ -126,9 +184,9 @@ class CollectionAllData {
       
       // 整理 App 的詳細資料
       makeAppDetail();
-      
     }
-    
+
+    // 主要將資料裝到 allEventVec
     void makeAppDetail() {
       // 有些不需要的直接跳過的 app
       bool *notNeedApp = new bool[allAppDetailVec.size()];
@@ -144,7 +202,17 @@ class CollectionAllData {
           continue;
         }
         // 過慮自己的收集 App
-        int temp = allAppDetailVec[i].appName.find("com.mason.memoryinfo:remote",0);
+        int temp = allAppDetailVec[i].appName.find("com.mason.memoryinfo:Record",0);
+        if(0<=temp) {
+          notNeedApp[i] = true;
+          continue;
+        }
+        temp = allAppDetailVec[i].appName.find("com.mason.memoryinfo:Recover",0);
+        if(0<=temp) {
+          notNeedApp[i] = true;
+          continue;
+        }
+        temp = allAppDetailVec[i].appName.find("com.mason.memoryinfo:remote",0);
         if(0<=temp) {
           notNeedApp[i] = true;
           continue;
@@ -295,7 +363,7 @@ class CollectionAllData {
         
         // 看有沒有螢幕開關，但沒有其他變化
         bool isScreenChange = (allPatternVec[i].screen != allPatternVec[i+1].screen);
-        // 看 oom_adj 有沒有變化 或是有新開的APP 以及螢幕是否有改變
+        // 看 oom_adj 有沒有變成0 或是有新開的APP 以及螢幕是否有改變
         if (isOom_adjChToZero || isCreatNewApp || isScreenChange) {
           // 都有的話將資料寫入
           thisEvent.thisDate = &allPatternVec[i].date;
@@ -303,6 +371,13 @@ class CollectionAllData {
           thisEvent.isThisScreenOn = allPatternVec[i].screen;
           thisEvent.isNextScreenOn = allPatternVec[i+1].screen;
           allEventVec.push_back(thisEvent);
+        }
+      }
+
+      // allEventVec 中的 app 可能出現重複的 app (收集時就有問題)
+      {
+        for (int i=0; i<allEventVec.size(); i++) {
+          allEventVec.at(i).sortOut();
         }
       }
       
@@ -385,728 +460,176 @@ class CollectionAllData {
     }
 };
 
-class NetCDFoutput {
+class DataMining {
   public :
-    class OneShut {
-      public :
-        static const int SCREEN_BEGIN = 0;
-        static const int SCREEN_LENGTH = 4; // on off off->on on->off
-        static const int WEEKDAY_BEGIN = SCREEN_BEGIN + SCREEN_LENGTH;
-        static const int WEEKDAY_LENGTH = 7; // 日一二三四五六
-        static const int DATETIME_BEGIN = WEEKDAY_BEGIN + WEEKDAY_LENGTH;
-        static const int DATETIME_LENGTH = 48; // 24 * 2
-        static const int APPDATA_BEGIN = DATETIME_BEGIN + DATETIME_LENGTH;
-        
-        DateTime *startDate;
-        DateTime *endDate;
-        // ================= 設定bug ===================
-        vector<Point::App*> targetAppVec;
-        float *ncData;
-        
-        OneShut(Event *event) { 
-          // 基本資料
-          startDate = event->thisDate;
-          endDate = event->nextDate;
-          for (int i=0; i<event->caseVec.size() ; i++) {
-            targetAppVec.push_back(event->caseVec[i].nextApp);
-          }
-        };
-        
-        static int getDateTimeCount(DateTime *dateTime) {
-          DateTime tempDT = *dateTime;
-          // 從 0:30:0 開始數
-          tempDT.hour = 0;
-          tempDT.minute = 30;
-          tempDT.second = 0;
-          for (int i=0; i<DATETIME_LENGTH; i++) {
-            if (tempDT < *dateTime) {
-              // 還沒到 往下加 0:30:0
-              if (tempDT.minute == 30) {
-                tempDT.hour++;
-                tempDT.minute = 0;
-              } else {
-                tempDT.minute = 30;
-              }
-            } else {
-              return i;
-            }
-          }
-        }
-    };
-  
-    DateTime oneLearningTimeLong; // 一個學習資料的時間長度 (目前為24小時)
-    vector<string> *allAppNameVec;
-    vector<string> appNameVec;
-    vector<Event> *eventVec;
-    vector<OneShut> pattern;      // 將 eventVec 轉換完後
-    int oneNcDataLength;
-    
-    int numSeqs;              //    pattern量
-    int numTimesteps;         //    全部的資料量
-    int inputPattSize;        // OK 輸入資料的維度 (RGB:3)
-    int numDims;              // OK 單筆資料的維度 (圖片:2)
-    int numLabels;            //    有多少個不同的 app 數量
-    int maxLabelLength;       //    App's name 的最長長度
-    int maxTargStringLength;  //    targetLenghtVec 中的最大值
-    
-    NetCDFoutput() {
-      // 設定 oneLearningTimeLong (目前為24小時)
-      oneLearningTimeLong.initial();
-      oneLearningTimeLong.hour = 24;
-      
-      inputPattSize = 1;
-      numDims = 1;      
+    string screen_turn_on;
+    string screen_turn_off;
+    string screen_long_off;
+    int EPscreen_turn_on;
+    int EPscreen_turn_off;
+    int EPscreen_long_off;
+    DateTime intervalTime;
+    vector<int> DMEventPoint;
+    vector<string> DMEPtoEvent;
+    DataMining() {
+      screen_turn_on = string("screen turn on");
+      screen_turn_off = string("screen turn off");
+      screen_long_off = string("screen long off");
+      // 看螢幕"暗著"的時間間隔 // mason
+      intervalTime.initial();
+      intervalTime.hour = 1;
     }
-    
-    void collection(vector<Event> *eventVec, vector<string> *allAppNameVec) {
-      this->eventVec = eventVec;
-      this->allAppNameVec = allAppNameVec;
-      // namePoint 指到 appNameTranslate 的位置就是在 nc 檔中的新位置
-      int appNameTranslate[allAppNameVec->size()];
-      int appNum = 0;
+
+    bool collection(vector<Event> *eventVec, vector<string> *allAppNameVec) {
+      bool lastScreen = eventVec->at(0).isNextScreenOn;
+      for (int i=1; i<eventVec->size(); i++) {
+        if (lastScreen != eventVec->at(i).isThisScreenOn) {
+          cout << "not good" <<endl;
+        }
+        lastScreen = eventVec->at(i).isNextScreenOn;
+        
+      }
+      // 先將 app 一一列好
+      // initial
+      // 先放 app name
       for (int i=0; i<allAppNameVec->size(); i++) {
-        appNameTranslate[i] = -1;
+        DMEPtoEvent.push_back(allAppNameVec->at(i));
       }
-      
-      // 將 appNameTranslate 建立起來
-      // 收尋所有 app
-      for (int i=0; i<eventVec->size(); i++) {
-        for (int j=0; j<(*eventVec)[i].caseVec.size(); j++) {
-          // 沒有在 appNameTranslate 找到的話(等於-1)，就是沒有
-          int oldNamePoint = (*eventVec)[i].caseVec[j].namePoint;
-          if (appNameTranslate[oldNamePoint] == -1) {
-            appNameTranslate[oldNamePoint] = appNum;
-            appNum++;
-            // 建立新的 appNameVec
-            appNameVec.push_back((*allAppNameVec)[oldNamePoint]);
-          }
-        }
-      }
-      
-      oneNcDataLength = OneShut::APPDATA_BEGIN + appNum;
-      for (int i=0; i<eventVec->size(); i++) {
-        // 宣告 並給予 &(*eventVec)[i] 讓他可以建立基本資料
-        OneShut oneShut(&(*eventVec)[i]);
-        oneShut.ncData = new float[oneNcDataLength];
-        for (int j=0; j<oneNcDataLength; j++) {
-          oneShut.ncData[j] = 0;
-        }
-        
-        // screen
-        if ((*eventVec)[i].isNextScreenOn) {
-          oneShut.ncData[OneShut::SCREEN_BEGIN + 0] = 1;
-          if (!(*eventVec)[i].isThisScreenOn) {
-            oneShut.ncData[OneShut::SCREEN_BEGIN + 2] = 1;
-          }
-        } else {
-          oneShut.ncData[OneShut::SCREEN_BEGIN + 1] = 1;
-          if ((*eventVec)[i].isThisScreenOn) {
-            oneShut.ncData[OneShut::SCREEN_BEGIN + 3] = 1;
-          }
-        }
-        
-        // weekday
-        int weekday = (*eventVec)[i].nextDate->WeekDay();
-        oneShut.ncData[OneShut::WEEKDAY_BEGIN + weekday] = 1;
-        
-        // timeCount
-        int timeCount = OneShut::getDateTimeCount((*eventVec)[i].nextDate);
-        oneShut.ncData[OneShut::DATETIME_BEGIN + timeCount] = 1;
-        
-        // appData
-        for (int j=0; j<(*eventVec)[i].caseVec.size(); j++) {
-          int newNamePoint = appNameTranslate[(*eventVec)[i].caseVec[j].namePoint];
-          if (newNamePoint<0 || appNum<=newNamePoint) { // 不在 0 ~ appNum 範圍內
-            cout << "(error) newNamePoint(" << newNamePoint << ") no between 0 and " << appNum << "." <<endl;
-          }
-          oneShut.ncData[OneShut::APPDATA_BEGIN + newNamePoint] = 1;
-        }
-        pattern.push_back(oneShut);
-      }
-      
-      cout << "    ================ nc output ================" <<endl;
-      cout << "從 " << allAppNameVec->size() << " 刪到剩 " << appNum << " 個有用到的 app" <<endl;
-      
-      // pattern ncData 測試
-      for (int i=0; i<pattern.size(); i++) {
-        for (int j=0; j<oneNcDataLength; j++) {
-          cout << pattern[i].ncData[j];
-        }
-        cout <<endl;
-      }
-      
-      ncOutput2();
+      // screen "screen turn on" "screen turn off" "screen long off"
+      DMEPtoEvent.push_back(screen_turn_on);
+      EPscreen_turn_on = DMEPtoEvent.size()-1;
+      DMEPtoEvent.push_back(screen_turn_off);
+      EPscreen_turn_off = DMEPtoEvent.size()-1;
+      DMEPtoEvent.push_back(screen_long_off);
+      EPscreen_long_off = DMEPtoEvent.size()-1;
+
+
+      vector<pair<int, int> > usePattern;  // 主要是將 screen 關閉太久後，就當做前後沒有關係
+      getUserPattern(&usePattern, eventVec);
+
+      // 整理後給 DMEventPoint
+      putOnDMEventPoint(&usePattern, eventVec);
     }
-    
-    void ncOutput() {
-      // 找合格的有多少個 並分析
-      vector<int> inputsLenghtVec;
-      vector<char*> inputsStrVec;
-      vector<int> targetLenghtVec;
-      vector<char*> targetStrVec;
-      int head = 0, end = 1;
-      DateTime headTime = *pattern[head].endDate;
-      
-      { // 看有沒有時間超過的太誇張
-        bool isHave = false;
-        DateTime intervalTime;
-        intervalTime.initial();
-        intervalTime.hour = 8;
-        for (int i=1; i<pattern.size(); i++) {
-          if (*pattern[i].endDate - *pattern[i-1].endDate > intervalTime) {
-            if (!isHave) {
-              isHave = true;
-              cout << "    ========= Interval Time > 8 hour ==========" <<endl;
-              cout << "              start                     end     interval" <<endl;
-            }
-            pattern[i-1].endDate->output();
-            cout << "\t";
-            pattern[i].endDate->output();
-            cout << "\t";
-            (*pattern[i].endDate - *pattern[i-1].endDate).output();
-            cout << endl;
-          }
+
+    bool getUserPattern(vector<pair<int, int> > *usePattern, vector<Event> *eventVec) {
+      // 看螢幕"暗著"的時間間隔 // mason
+      cout << "    ========= Interval Time > " << intervalTime.hour << " hour ==========" <<endl;
+      cout << "              start                     end     interval" <<endl;
+      Event *screenChgOnShut, *screenChgOffShut;
+      pair<int, int> onePattern = make_pair(0,0);
+      int pI;
+      // 先找第一次變亮的時候
+      for (pI = 0; pI<eventVec->size(); pI++) {
+        if (eventVec->at(pI).isThisScreenOn) {
+          screenChgOnShut = &(eventVec->at(pI));
+          onePattern.first = pI;
+          break;
         }
       }
-      
-      for (int i=1; i<pattern.size(); i++) {
-        DateTime endTime = *pattern[i].endDate;
-        // 如果超過可以學習的時間長度
-        if (endTime - headTime > oneLearningTimeLong) {
-          // 就先看看當下的 OneShut 有沒有 creat app
-          if (pattern[i].targetAppVec.size() > 0) {
-            // 有的話 就可以當作一筆資料
-            // 先找最接近 oneLearningTimeLong 的時間段
-            do {
-              head++;
-              headTime = *pattern[head].endDate;
+      // PI 有起頭之後就用 while 跑
+      while (pI<eventVec->size()) {
+        // 再找第一次變暗的時候
+        for (pI; pI<eventVec->size(); pI++) {
+          if (!eventVec->at(pI).isThisScreenOn) {
+            screenChgOffShut = &(eventVec->at(pI));
+            onePattern.second = pI;
+            break;
+          }
+        }
+        // 這裡的 screenChgOnShut screenChgOffShut 之間是 螢幕亮的期間
+
+        // 新的一次 找第一次變亮的時候
+        for (pI; pI<eventVec->size(); pI++) {
+          if (eventVec->at(pI).isThisScreenOn) {
+            screenChgOnShut = &(eventVec->at(pI));
+            break;
+          }
+        }
+
+        // 先檢察是不是還在 pattern 範圍內
+        if (!(pI<eventVec->size())) {
+          break;
+        }
+        // 有找到的話 檢查中間間隔是不是夠久
+        // 比 intervalTime 還長的話就代表有 並紀錄
+        else if (*(screenChgOnShut->thisDate) - *(screenChgOffShut->thisDate) > intervalTime) {
+          usePattern->push_back(onePattern);
+          onePattern.first = pI;
+          /*screenChgOffShut->thisDate->output();
+          cout << "\t";
+          screenChgOnShut->thisDate->output();
+          cout << "\t";
+          (*(screenChgOnShut->thisDate) - *(screenChgOffShut->thisDate)).output();
+          cout << endl;*/
+        }
+      }
+      return true;
+    }
+
+    /** 如果有遇到一次發現多的 app 執行的話
+     * 就用 "oom_score" 來判斷先後
+     * 數字大的前面
+     * 最後都放到 DMEventPoint 之中
+     */
+    void putOnDMEventPoint(vector<pair<int, int> > *usePattern, vector<Event> *eventVec) {
+      // 用 usePattern 來取出
+      for (int i=0; i<usePattern->size(); i++) {
+        pair<int, int> useInterval = usePattern->at(i);
+        // EP = EventPoint
+        for (int EP=useInterval.first; EP<=useInterval.second; EP++) {
+          /** 順序是先
+           * 1. check screen, if turn on, record it
+           * 2. record app
+           * 3. check screen, if turn off, record it
+           */
+          Event* oneshut = &(eventVec->at(EP));
+          // ----- 1. check screen, if turn on, record it
+          if (!oneshut->isThisScreenOn && oneshut->isNextScreenOn) {
+            DMEventPoint.push_back(EPscreen_turn_on);
+          }
+
+          // ----- 2. record app
+          vector<Event::Case> *caseVec = &(oneshut->caseVec);
+          // 有東西才記錄
+          if (caseVec->size()!=0) {
+            bool app_record[caseVec->size()];
+            for (int j=0; j<caseVec->size(); j++) {
+              app_record[j] = false;
             }
-            while (endTime - headTime > oneLearningTimeLong);
-            
-            // 如果找到同一個時間點的話， 代表上個點到這個點之前超過 oneLearningTimeLong 時間
-            if (i <= head) {
-              // 有問題，且資料不能用，並跳過此點的數據
-              cout << "(error) NetCDFoutput::ncOutput() i=" << i << " head=" << head <<endl;
-              continue;
-            }
-            
-            // 讓 head 往上跳一格
-            head--;
-            headTime = *pattern[head].endDate;
-            
-            // 開始記錄相關資訊
-            // input 部分
-            int inputsLenght = (i-head) * oneNcDataLength;  // 長度
-            char *inputChars = new char[inputsLenght];                  // 內容
-            int count=0;
-            for (int j=head; j<i; j++) {
-              for (int k=0; k<oneNcDataLength; k++) {
-                inputChars[count++] = pattern[j].ncData[k];
+            for (int j=0; j<caseVec->size(); j++) {
+              int big_oom_score = -1;
+              int big_app_num = -1;
+              int big_app_name = -1;
+              for (int k=0; k<caseVec->size(); k++) {
+                if (app_record[k]) {
+                  continue;
+                }
+                if (big_oom_score <= caseVec->at(k).nextApp->oom_score) {
+                  big_oom_score = caseVec->at(k).nextApp->oom_score;
+                  big_app_num = k;
+                  big_app_name = caseVec->at(k).nextApp->namePoint;
+                }
               }
-            }
-            inputsLenghtVec.push_back(inputsLenght);
-            inputsStrVec.push_back(inputChars);
-            
-            // target 部分
-            // 要先知道長度
-            int targetLenght = 0; // 長度
-            count = 0;
-            for (int j=0; j<pattern[i].targetAppVec.size(); j++) {
-              targetLenght += 1 + (*allAppNameVec)[pattern[i].targetAppVec[j]->namePoint].size();
-            }
-            char *targetChars = new char[targetLenght]; // 內容
-            for (int j=0; j<pattern[i].targetAppVec.size(); j++) {
-              int c_strSize = (*allAppNameVec)[pattern[i].targetAppVec[j]->namePoint].size();
-              const char *appName = (*allAppNameVec)[pattern[i].targetAppVec[j]->namePoint].c_str();
-              for (int k=0; k<c_strSize; k++) {
-                targetChars[count++] = appName[k];
+              if (big_oom_score<0 || big_app_num<0 || big_app_name<0) {
+                cout << "bad" <<endl;
               }
-              targetChars[count++] = ' ';
-            }
-            targetChars[count-1] = '\0';
-            targetLenghtVec.push_back(targetLenght);
-            targetStrVec.push_back(targetChars);
-          }
-        }
-      }
-      
-      // =======================================
-      
-      // ---------- numSeqs maxTargStringLength
-      numSeqs = inputsStrVec.size();  // pattern量
-      maxTargStringLength = 0;        // targetLenghtVec 中的最大值
-      for (int i=0; i<targetLenghtVec.size(); i++) {
-        if (maxTargStringLength < targetLenghtVec[i]) {
-          maxTargStringLength = targetLenghtVec[i];
-        }
-      }
-      cout << "Pattern Number : " << numSeqs <<endl;
-      cout << "Max Target String Length : " << maxTargStringLength <<endl;
-      
-      
-      // ---------- numLabels maxLabelLength
-      numLabels = appNameVec.size(); // 有多少個不同的 app 數量
-      maxLabelLength = 0;            // App's name 的最長長度
-      for (int i=0; i<appNameVec.size(); i++) {
-        if (maxLabelLength<appNameVec[i].size()) {
-          maxLabelLength = appNameVec[i].size();
-        }
-      }
-      
-      // ============== 轉成 nc 檔 ==============
-      NcFile dataFile(getNcFileName(TRAINING_FILE), NcFile::Replace);
-      if (!dataFile.is_valid()) { // 看能不能用
-        cout << "(error)NetCDFoutput::ncOutput() Couldn't open \"" << getNcFileName(TRAINING_FILE) << "\" file!";
-        return;
-      }
-      
-      //  ===== char labels(numLabels, maxLabelLength) 
-      {
-        maxLabelLength++; // 最後一位要給 '\0'
-        NcDim *numLabelsNC = dataFile.add_dim("numLabels", numLabels);
-        NcDim *maxLabelLengthNC = dataFile.add_dim("maxLabelLength", maxLabelLength);
-        NcVar *labelsNC = dataFile.add_var("labels", ncChar, numLabelsNC, maxLabelLengthNC);
-        // 整理檔案 (labels)
-        // vector<string> appNameVec;
-        for(int i=0; i<numLabels; i++) {
-          int lenght = appNameVec[i].size();
-          char appName[maxLabelLength];
-          const char *temp = appNameVec[i].c_str();
-          for (int j=0; j<maxLabelLength; j++) {
-            appName[j] = (j<lenght) ? temp[j] : '\0';
-          }
-          // 一個一個放入
-          labelsNC->put_rec(numLabelsNC, appName, i);
-        }
-      }
-      
-      // ===== char targetStrings(numSeqs, maxTargStringLength)
-      {
-        NcDim *numSeqsNC = dataFile.add_dim("numSeqs", numSeqs);
-        NcDim *maxTargStringLengthNC = dataFile.add_dim("maxTargStringLength", maxTargStringLength);
-        NcVar *targetStringsNC = dataFile.add_var("targetStrings", ncChar, numSeqsNC, maxTargStringLengthNC);
-        // 整理檔案 (targetStrings)
-        //   vector<int> targetLenghtVec;
-        //   vector<char*> targetStrVec;
-        for(int i=0; i<numSeqs; i++) {
-          int lenght = targetLenghtVec[i];
-          char targetString[maxTargStringLength];
-          const char *temp = targetStrVec[i];
-          for (int j=0; j<maxTargStringLength; j++) {
-            targetString[j] = (j<lenght) ? temp[j] : '\0';
-          }
-          // 一個一個放入
-          targetStringsNC->put_rec(numSeqsNC, targetString, i);
-        }
-      }
-      
-      // ===== int seqLengths(numSeqs)
-      numTimesteps = 0;  // 順便找全部的資料量
-      {
-        NcDim *numSeqsNC = dataFile.get_dim("numSeqs");  // 上面已經有了
-        NcVar *seqLengthsNC = dataFile.add_var("seqLengths", ncInt, numSeqsNC);
-        //   vector<int> inputsLenghtVec;
-        for (int i=0; i<inputsLenghtVec.size(); i++) {
-          numTimesteps += inputsLenghtVec[i];
-          seqLengthsNC->put_rec(numSeqsNC, &inputsLenghtVec[i], i);
-        }
-      }
-      
-      // ===== int seqDims(numSeqs, numDims)
-      numDims = 2;  // 單筆資料的維度 (圖片:2)
-      {
-        NcDim *numSeqsNC = dataFile.get_dim("numSeqs");  // 上面已經有了
-        NcDim *numDimsNC = dataFile.add_dim("numDims", numDims);
-        NcVar *seqDimsNC = dataFile.add_var("seqDims", ncInt, numSeqsNC, numDimsNC);
-        // 整理檔案 (seqDims)
-        //   vector<int> inputsLenghtVec;
-        for (int i=0; i<inputsLenghtVec.size(); i++) {
-          int temp[numDims];
-          oneNcDataLength;
-          temp[0] = oneNcDataLength;
-          temp[1] = inputsLenghtVec[i] / oneNcDataLength;
-          //temp[0] = inputsLenghtVec[i];
-          //temp[1] = 1;
-          seqDimsNC->put_rec(numSeqsNC, &temp[0], i);
-        }
-      }
-      
-      // ===== float inputs(numTimesteps, inputPattSize)
-      inputPattSize = 1;  // 輸入資料的維度 (RGB:3)
-      {
-        NcDim *numTimestepsNC = dataFile.add_dim("numTimesteps", numTimesteps);
-        NcDim *inputPattSizeNC = dataFile.add_dim("inputPattSize", inputPattSize);
-        NcVar *inputsNC = dataFile.add_var("inputs", ncFloat, numTimestepsNC, inputPattSizeNC);
-        // 整理檔案 (inputs)
-        //   vector<int> inputsLenghtVec;
-        //   vector<char*> inputsStrVec;
-        float inputs[numTimesteps][inputPattSize];
-        int count = 0;
-        for (int i=0; i<inputsLenghtVec.size(); i++) {
-          for (int j=0; j<inputsLenghtVec[i]; j++) {
-            inputs[count++][0] = inputsStrVec[i][j];
-          }
-        }
-        inputsNC->put(&inputs[0][0], numTimesteps, inputPattSize);
-      }
-      
-      // ===== seqTags(numSeqs, maxSeqTagLength)
-      {
-        int maxSeqTagLength = 32;
-        NcDim *numSeqsNC = dataFile.get_dim("numSeqs");  // 上面已經有了
-        NcDim *maxSeqTagLengthNC = dataFile.add_dim("maxSeqTagLength", maxSeqTagLength);
-        NcVar *seqTagsNC = dataFile.add_var("seqTags", ncChar, numSeqsNC, maxSeqTagLengthNC);
-        // 整理檔案 (numSeqs)
-        for(int i=0; i<numSeqs; i++) {
-          char *temp;
-          int num = i;
-          temp = new char[maxSeqTagLength];
-          for (int j=0; j<maxSeqTagLength; j++) {
-            temp[j] = '\0';
-          }
-          sprintf(temp, "%d-%d", num, inputsLenghtVec[i]);
-          // 一個一個放入
-          seqTagsNC->put_rec(numSeqsNC, &temp[0], i);
-        }
-      }
-      return ;
-    };
-    
-    // 會輸出 10%的Testing檔案
-    void ncOutput2() {
-      // 找合格的有多少個 並分析
-      vector<int> inputsLenghtVec;
-      vector<char*> inputsStrVec;
-      vector<int> targetLenghtVec;
-      vector<char*> targetStrVec;
-      int head = 0, end = 1;
-      DateTime headTime = *pattern[head].endDate;
-      
-      { // 看有沒有時間超過的太誇張
-        bool isHave = false;
-        DateTime intervalTime;
-        intervalTime.initial();
-        intervalTime.hour = 8;
-        for (int i=1; i<pattern.size(); i++) {
-          if (*pattern[i].endDate - *pattern[i-1].endDate > intervalTime) {
-            if (!isHave) {
-              isHave = true;
-              cout << "    ========= Interval Time > 8 hour ==========" <<endl;
-              cout << "              start                     end     interval" <<endl;
-            }
-            pattern[i-1].endDate->output();
-            cout << "\t";
-            pattern[i].endDate->output();
-            cout << "\t";
-            (*pattern[i].endDate - *pattern[i-1].endDate).output();
-            cout << endl;
-          }
-        }
-      }
-      
-      for (int i=1; i<pattern.size(); i++) {
-        DateTime endTime = *pattern[i].endDate;
-        // 如果超過可以學習的時間長度
-        if (endTime - headTime > oneLearningTimeLong) {
-          // 就先看看當下的 OneShut 有沒有 creat app
-          if (pattern[i].targetAppVec.size() > 0) {
-            // 有的話 就可以當作一筆資料
-            // 先找最接近 oneLearningTimeLong 的時間段
-            do {
-              head++;
-              headTime = *pattern[head].endDate;
-            }
-            while (endTime - headTime > oneLearningTimeLong);
-            
-            // 如果找到同一個時間點的話， 代表上個點到這個點之前超過 oneLearningTimeLong 時間
-            if (i <= head) {
-              // 有問題，且資料不能用，並跳過此點的數據
-              cout << "(error) NetCDFoutput::ncOutput() i=" << i << " head=" << head <<endl;
-              continue;
-            }
-            
-            // 讓 head 往上跳一格
-            head--;
-            headTime = *pattern[head].endDate;
-            
-            // 開始記錄相關資訊
-            // input 部分
-            int inputsLenght = (i-head) * oneNcDataLength;  // 長度
-            char *inputChars = new char[inputsLenght];                  // 內容
-            int count=0;
-            for (int j=head; j<i; j++) {
-              for (int k=0; k<oneNcDataLength; k++) {
-                inputChars[count++] = pattern[j].ncData[k];
-              }
-            }
-            inputsLenghtVec.push_back(inputsLenght);
-            inputsStrVec.push_back(inputChars);
-            
-            // target 部分
-            // 要先知道長度
-            int targetLenght = 0; // 長度
-            count = 0;
-            for (int j=0; j<pattern[i].targetAppVec.size(); j++) {
-              targetLenght += 1 + (*allAppNameVec)[pattern[i].targetAppVec[j]->namePoint].size();
-            }
-            char *targetChars = new char[targetLenght]; // 內容
-            for (int j=0; j<pattern[i].targetAppVec.size(); j++) {
-              int c_strSize = (*allAppNameVec)[pattern[i].targetAppVec[j]->namePoint].size();
-              const char *appName = (*allAppNameVec)[pattern[i].targetAppVec[j]->namePoint].c_str();
-              for (int k=0; k<c_strSize; k++) {
-                targetChars[count++] = appName[k];
-              }
-              targetChars[count++] = ' ';
-            }
-            targetChars[count-1] = '\0';
-            targetLenghtVec.push_back(targetLenght);
-            targetStrVec.push_back(targetChars);
-          }
-        }
-      }
-      
-      // =======================================
-      int testFileLong = 10;  // testFile(%)
-      int trainingSize = ((double)(100-testFileLong)/100) * inputsStrVec.size();
-      int testingSize = inputsStrVec.size() - trainingSize;
-      
-      // ============== 轉成 nc 檔 ==============
-      NcFile dataFile(getNcFileName(TRAINING_FILE), NcFile::Replace);
-      if (!dataFile.is_valid()) { // 看能不能用
-        cout << "(error)NetCDFoutput::ncOutput() Couldn't open \"" << getNcFileName(TRAINING_FILE) << "\" file!";
-        return;
-      }
-      NcFile testFile(getNcFileName(TESTING_FILE), NcFile::Replace);
-      if (!dataFile.is_valid()) { // 看能不能用
-        cout << "(error)NetCDFoutput::ncOutput() Couldn't open \"" << getNcFileName(TESTING_FILE) << "\" file!";
-        return;
-      }
-      
-      // ---------- numSeqs maxTargStringLength
-      numSeqs = inputsStrVec.size();  // pattern量
-      maxTargStringLength = 0;        // targetLenghtVec 中的最大值
-      for (int i=0; i<targetLenghtVec.size(); i++) {
-        if (maxTargStringLength < targetLenghtVec[i]) {
-          maxTargStringLength = targetLenghtVec[i];
-        }
-      }
-      cout << "Pattern Number : " << numSeqs <<endl;
-      cout << "Max Target String Length : " << maxTargStringLength <<endl;
-      
-      // ---------- numLabels maxLabelLength
-      numLabels = appNameVec.size(); // 有多少個不同的 app 數量
-      maxLabelLength = 0;            // App's name 的最長長度
-      for (int i=0; i<appNameVec.size(); i++) {
-        if (maxLabelLength<appNameVec[i].size()) {
-          maxLabelLength = appNameVec[i].size();
-        }
-      }
-      
-      //  ===== char labels(numLabels, maxLabelLength) 
-      {
-        maxLabelLength++; // 最後一位要給 '\0'
-        NcDim *numLabelsNC = dataFile.add_dim("numLabels", numLabels);
-        NcDim *maxLabelLengthNC = dataFile.add_dim("maxLabelLength", maxLabelLength);
-        NcVar *labelsNC = dataFile.add_var("labels", ncChar, numLabelsNC, maxLabelLengthNC);
-        // test
-        NcDim *numLabelsNCtest = testFile.add_dim("numLabels", numLabels);
-        NcDim *maxLabelLengthNCtest = testFile.add_dim("maxLabelLength", maxLabelLength);
-        NcVar *labelsNCtest = testFile.add_var("labels", ncChar, numLabelsNCtest, maxLabelLengthNCtest);
-        // 整理檔案 (labels)
-        // vector<string> appNameVec;
-        for(int i=0; i<numLabels; i++) {
-          int lenght = appNameVec[i].size();
-          char appName[maxLabelLength];
-          const char *temp = appNameVec[i].c_str();
-          for (int j=0; j<maxLabelLength; j++) {
-            appName[j] = (j<lenght) ? temp[j] : '\0';
-          }
-          // 一個一個放入 且一起放就好
-          labelsNC->put_rec(numLabelsNC, appName, i);
-          labelsNCtest->put_rec(numLabelsNCtest, appName, i);
-        }
-      }
-      
-      // ===== char targetStrings(numSeqs, maxTargStringLength)
-      {
-        NcDim *numSeqsNC = dataFile.add_dim("numSeqs", trainingSize);
-        NcDim *maxTargStringLengthNC = dataFile.add_dim("maxTargStringLength", maxTargStringLength);
-        NcVar *targetStringsNC = dataFile.add_var("targetStrings", ncChar, numSeqsNC, maxTargStringLengthNC);
-        // test
-        NcDim *numSeqsNCtest = testFile.add_dim("numSeqs", testingSize);
-        NcDim *maxTargStringLengthNCtest = testFile.add_dim("maxTargStringLength", maxTargStringLength);
-        NcVar *targetStringsNCtest = testFile.add_var("targetStrings", ncChar, numSeqsNCtest, maxTargStringLengthNCtest);
-        // 整理檔案 (targetStrings)
-        //   vector<int> targetLenghtVec;
-        //   vector<char*> targetStrVec;
-        for(int i=0; i<numSeqs; i++) {
-          int lenght = targetLenghtVec[i];
-          char targetString[maxTargStringLength];
-          const char *temp = targetStrVec[i];
-          for (int j=0; j<maxTargStringLength; j++) {
-            targetString[j] = (j<lenght) ? temp[j] : '\0';
-          }
-          // 一個一個放入 且要分開放
-          if (i < trainingSize) {
-            targetStringsNC->put_rec(numSeqsNC, targetString, i);
-          } else if (i - trainingSize < testingSize) {
-            targetStringsNCtest->put_rec(numSeqsNCtest, targetString, i - trainingSize);
-          } else {
-            cout << "(error)NetCDFoutput::ncOutput2()char targetStrings(...)" <<endl;
-            cout << "       i(" << i << ") - trainingSize(" << trainingSize << ") > testingSize(" << testingSize << ")" <<endl;
-          }
-        }
-      }
-      
-      // ===== int seqLengths(numSeqs)
-      numTimesteps = 0;  // 順便找全部的資料量
-      int numTimestepsTraining = 0;
-      int numTimestepsTesting = 0;
-      {
-        NcDim *numSeqsNC = dataFile.get_dim("numSeqs");  // 上面已經有了
-        NcVar *seqLengthsNC = dataFile.add_var("seqLengths", ncInt, numSeqsNC);
-        // test
-        NcDim *numSeqsNCtest = testFile.get_dim("numSeqs");  // 上面已經有了
-        NcVar *seqLengthsNCtest = testFile.add_var("seqLengths", ncInt, numSeqsNCtest);
-        //   vector<int> inputsLenghtVec;
-        for (int i=0; i<numSeqs; i++) {
-          numTimesteps += inputsLenghtVec[i];
-          // 一個一個放入 且要分開放
-          if (i < trainingSize) {
-            numTimestepsTraining += inputsLenghtVec[i];
-            seqLengthsNC->put_rec(numSeqsNC, &inputsLenghtVec[i], i);
-          } else if (i - trainingSize < testingSize) {
-            numTimestepsTesting += inputsLenghtVec[i];
-            seqLengthsNCtest->put_rec(numSeqsNCtest, &inputsLenghtVec[i], i - trainingSize);
-          } else {
-            cout << "(error)NetCDFoutput::ncOutput2()int seqLengths(...)" <<endl;
-            cout << "       i(" << i << ") - trainingSize(" << trainingSize << ") > testingSize(" << testingSize << ")" <<endl;
-          }
-        }
-      }
-      // ===== int seqDims(numSeqs, numDims)
-      numDims = 2;  // 單筆資料的維度 (圖片:2)
-      {
-        NcDim *numSeqsNC = dataFile.get_dim("numSeqs");  // 上面已經有了
-        NcDim *numDimsNC = dataFile.add_dim("numDims", numDims);
-        NcVar *seqDimsNC = dataFile.add_var("seqDims", ncInt, numSeqsNC, numDimsNC);
-        // test
-        NcDim *numSeqsNCtest = testFile.get_dim("numSeqs");  // 上面已經有了
-        NcDim *numDimsNCtest = testFile.add_dim("numDims", numDims);
-        NcVar *seqDimsNCtest = testFile.add_var("seqDims", ncInt, numSeqsNCtest, numDimsNCtest);
-        // 整理檔案 (seqDims)
-        //   vector<int> inputsLenghtVec;
-        for (int i=0; i<numSeqs; i++) {
-          int temp[numDims];
-          oneNcDataLength;
-          temp[0] = oneNcDataLength;
-          temp[1] = inputsLenghtVec[i] / oneNcDataLength;
-          // 一個一個放入 且要分開放
-          if (i < trainingSize) {
-            seqDimsNC->put_rec(numSeqsNC, &temp[0], i);
-          } else if (i - trainingSize < testingSize) {
-            seqDimsNCtest->put_rec(numSeqsNCtest, &temp[0], i - trainingSize);
-          } else {
-            cout << "(error)NetCDFoutput::ncOutput2()int seqDims(...)" <<endl;
-            cout << "       i(" << i << ") - trainingSize(" << trainingSize << ") > testingSize(" << testingSize << ")" <<endl;
-          }
-        }
-      }
-      
-      // ===== float inputs(numTimesteps, inputPattSize)
-      inputPattSize = 1;  // 輸入資料的維度 (RGB:3)
-      {
-        NcDim *numTimestepsNC = dataFile.add_dim("numTimesteps", numTimestepsTraining);
-        NcDim *inputPattSizeNC = dataFile.add_dim("inputPattSize", inputPattSize);
-        NcVar *inputsNC = dataFile.add_var("inputs", ncFloat, numTimestepsNC, inputPattSizeNC);
-        //test
-        NcDim *numTimestepsNCtest = testFile.add_dim("numTimesteps", numTimestepsTesting);
-        NcDim *inputPattSizeNCtest = testFile.add_dim("inputPattSize", inputPattSize);
-        NcVar *inputsNCtest = testFile.add_var("inputs", ncFloat, numTimestepsNCtest, inputPattSizeNCtest);
-        // 整理檔案 (inputs)
-        //   vector<int> inputsLenghtVec;
-        //   vector<char*> inputsStrVec;
-        float inputsTraining[numTimestepsTraining][inputPattSize];  // 一次宣告全部大小 並且一次放完
-        float inputsTesting[numTimestepsTesting][inputPattSize];  // 一次宣告全部大小 並且一次放完
-        int countTraining = 0;
-        int countTesting = 0;
-        for (int i=0; i<inputsLenghtVec.size(); i++) {
-          for (int j=0; j<inputsLenghtVec[i]; j++) {
-            // 一個一個放入 且要分開放
-            if (i < trainingSize) {
-              inputsTraining[countTraining++][0] = inputsStrVec[i][j];
-            } else if (i - trainingSize < testingSize) {
-              inputsTesting[countTesting++][0] = inputsStrVec[i][j];
-            } else {
-              cout << "(error)NetCDFoutput::ncOutput2()float inputs(...)" <<endl;
-              cout << "       i(" << i << ") - trainingSize(" << trainingSize << ") > testingSize(" << testingSize << ")" <<endl;
+              DMEventPoint.push_back(big_app_name);
+              //cout << big_oom_score << " : " << big_app_name;
+              //cout << "\t" << caseVec->at(j).nextApp->oom_score << " : " << caseVec->at(j).nextApp->namePoint;
+              //cout << endl;
+              app_record[big_app_num] = true;
             }
           }
-        }
-        // 最後放入
-        inputsNC->put(&inputsTraining[0][0], numTimestepsTraining, inputPattSize);
-        inputsNCtest->put(&inputsTesting[0][0], numTimestepsTesting, inputPattSize);
-      }
-      
-      // ===== char seqTags(numSeqs, maxSeqTagLength)
-      {
-        int maxSeqTagLength = 32;
-        NcDim *numSeqsNC = dataFile.get_dim("numSeqs");  // 上面已經有了
-        NcDim *maxSeqTagLengthNC = dataFile.add_dim("maxSeqTagLength", maxSeqTagLength);
-        NcVar *seqTagsNC = dataFile.add_var("seqTags", ncChar, numSeqsNC, maxSeqTagLengthNC);
-        // test
-        NcDim *numSeqsNCtest = testFile.get_dim("numSeqs");  // 上面已經有了
-        NcDim *maxSeqTagLengthNCtest = testFile.add_dim("maxSeqTagLength", maxSeqTagLength);
-        NcVar *seqTagsNCtest = testFile.add_var("seqTags", ncChar, numSeqsNCtest, maxSeqTagLengthNCtest);
-        // 整理檔案 (numSeqs)
-        for(int i=0; i<numSeqs; i++) {
-          char *temp;
-          int num = i;
-          temp = new char[maxSeqTagLength];
-          for (int j=0; j<maxSeqTagLength; j++) {
-            temp[j] = '\0';
-          }
-          sprintf(temp, "%d-%d", num, inputsLenghtVec[i]);
-          // 一個一個放入
-          seqTagsNC->put_rec(numSeqsNC, &temp[0], i);
           
-          // 一個一個放入 且要分開放
-          if (i < trainingSize) {
-            seqTagsNC->put_rec(numSeqsNC, &temp[0], i);
-          } else if (i - trainingSize < testingSize) {
-            seqTagsNCtest->put_rec(numSeqsNCtest, &temp[0], i - trainingSize);
-          } else {
-            cout << "(error)NetCDFoutput::ncOutput2()char seqTags(...)" <<endl;
-            cout << "       i(" << i << ") - trainingSize(" << trainingSize << ") > testingSize(" << testingSize << ")" <<endl;
+          // ----- 3. check screen, if turn off, record it
+          if (oneshut->isThisScreenOn && !oneshut->isNextScreenOn) {
+            DMEventPoint.push_back(EPscreen_turn_off);
           }
         }
+        // 接下來是很久時間都沒打開螢幕
+        DMEventPoint.push_back(EPscreen_long_off);
       }
-      return ;
-    };
-    
-  private :
-    static const int TRAINING_FILE = 100;
-    static const int TESTING_FILE = 101;
-    char* getNcFileName(int mod) {
-      const int bufferSize = 64;
-      DateTime *startDate = pattern[0].startDate;
-      DateTime *endDate = pattern[pattern.size()-1].endDate;
-      char *name;
-      name = new char[bufferSize];
-      if (mod == TRAINING_FILE) {
-        sprintf(name, "RNN_Training_%d-%d-%d_to_%d_%d_%d.nc", 
-                startDate->year, startDate->month, startDate->day,
-                endDate->year, endDate->month, endDate->day);
-      } else if (mod == TESTING_FILE) {
-        sprintf(name, "RNN_Testing_%d-%d-%d_to_%d_%d_%d.nc", 
-                startDate->year, startDate->month, startDate->day,
-                endDate->year, endDate->month, endDate->day);
-      } else {
-        cout << "(error)NetCDFoutput::getNcFileName(int mod) mod=" << mod <<endl;
-        return NULL;
-      }
-      return name;
-    };
+    }
 };
 
 int main(int argc, char** argv) {
@@ -1122,7 +645,7 @@ int main(int argc, char** argv) {
   vector<string> files;
   vector<CollectionFile> collecFileVec; // 所有檔案的 vector
   CollectionAllData collecAllData;      // 整理所有資料
-  NetCDFoutput netCDFoutput;            // 將 collecAllData 整理出來的資料轉 nc 檔
+  DataMining dataMining;
   // 取出檔案，並判斷有沒有問題
   if (getdir(dir, files) == -1) {
     cout << "Error opening" << dir << endl;
@@ -1162,7 +685,8 @@ int main(int argc, char** argv) {
   // 將檔案給 collecAllData 整理成可讓 netCDFoutput 讀的資料
   collecAllData.collection(&collecFileVec);
   // 將 collecAllData 中的 allEventVec appNameVec 給 netCDFoutput 去整理
-  netCDFoutput.collection(&collecAllData.allEventVec, &collecAllData.allAppNameVec);
+  //netCDFoutput.collection(&collecAllData.allEventVec, &collecAllData.allAppNameVec);
+  dataMining.collection(&collecAllData.allEventVec, &collecAllData.allAppNameVec);
   
   cout << "  over" <<endl;
   return 0;

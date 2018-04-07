@@ -1,0 +1,127 @@
+getNumer	analyze.cpp	/^string getNumer(char *numChar, int size) {$/;"	f
+main	analyze.cpp	/^int main() {$/;"	f
+APPDATA_BEGIN	read.cpp	/^        static const int APPDATA_BEGIN = DATETIME_BEGIN + DATETIME_LENGTH;$/;"	m	class:NetCDFoutput::OneShut	file:
+AppDetail	read.cpp	/^        AppDetail(string appName) {$/;"	f	class:CollectionAllData::AppDetail
+AppDetail	read.cpp	/^    class AppDetail {$/;"	c	class:CollectionAllData	file:
+Case	read.cpp	/^        Case() {$/;"	f	class:Event::Case
+Case	read.cpp	/^    class Case {$/;"	c	class:Event	file:
+CollectionAllData	read.cpp	/^    CollectionAllData() {$/;"	f	class:CollectionAllData
+CollectionAllData	read.cpp	/^class CollectionAllData {$/;"	c	file:
+DATETIME_BEGIN	read.cpp	/^        static const int DATETIME_BEGIN = WEEKDAY_BEGIN + WEEKDAY_LENGTH;$/;"	m	class:NetCDFoutput::OneShut	file:
+DATETIME_LENGTH	read.cpp	/^        static const int DATETIME_LENGTH = 48; \/\/ 24 * 2$/;"	m	class:NetCDFoutput::OneShut	file:
+Event	read.cpp	/^    Event() {$/;"	f	class:Event
+Event	read.cpp	/^class Event {$/;"	c	file:
+NetCDFoutput	read.cpp	/^    NetCDFoutput() {$/;"	f	class:NetCDFoutput
+NetCDFoutput	read.cpp	/^class NetCDFoutput {$/;"	c	file:
+OneShut	read.cpp	/^        OneShut(Event *event) { $/;"	f	class:NetCDFoutput::OneShut
+OneShut	read.cpp	/^    class OneShut {$/;"	c	class:NetCDFoutput	file:
+SCREEN_BEGIN	read.cpp	/^        static const int SCREEN_BEGIN = 0;$/;"	m	class:NetCDFoutput::OneShut	file:
+SCREEN_LENGTH	read.cpp	/^        static const int SCREEN_LENGTH = 4; \/\/ on off off->on on->off$/;"	m	class:NetCDFoutput::OneShut	file:
+TESTING_FILE	read.cpp	/^    static const int TESTING_FILE = 101;$/;"	m	class:NetCDFoutput	file:
+TRAINING_FILE	read.cpp	/^    static const int TRAINING_FILE = 100;$/;"	m	class:NetCDFoutput	file:
+WEEKDAY_BEGIN	read.cpp	/^        static const int WEEKDAY_BEGIN = SCREEN_BEGIN + SCREEN_LENGTH;$/;"	m	class:NetCDFoutput::OneShut	file:
+WEEKDAY_LENGTH	read.cpp	/^        static const int WEEKDAY_LENGTH = 7; \/\/ 日一二三四五六$/;"	m	class:NetCDFoutput::OneShut	file:
+addOom_adjStat	read.cpp	/^        bool addOom_adjStat(int oom_adj) {$/;"	f	class:CollectionAllData::AppDetail
+addonePoint	read.cpp	/^    void addonePoint(Point oneShot, const vector<string> *oneAppNameVec) {$/;"	f	class:CollectionAllData
+allAppDetailVec	read.cpp	/^    vector<AppDetail> allAppDetailVec;  \/\/ 所有 app 的詳細資料$/;"	m	class:CollectionAllData	file:
+allAppNameVec	read.cpp	/^    vector<string> *allAppNameVec;$/;"	m	class:NetCDFoutput	file:
+allAppNameVec	read.cpp	/^    vector<string> allAppNameVec;       \/\/ 用 collecFileVec 的資料收集所有的 app's name$/;"	m	class:CollectionAllData	file:
+allEventVec	read.cpp	/^    vector<Event> allEventVec;          \/\/ 先都裝到這裡 allEventVec$/;"	m	class:CollectionAllData	file:
+allPatternVec	read.cpp	/^    vector<Point> allPatternVec;        \/\/ 所有 pattern$/;"	m	class:CollectionAllData	file:
+appName	read.cpp	/^        string appName;$/;"	m	class:CollectionAllData::AppDetail	file:
+appNameVec	read.cpp	/^    vector<string> appNameVec;$/;"	m	class:NetCDFoutput	file:
+beginDate	read.cpp	/^    DateTime beginDate;$/;"	m	class:CollectionAllData	file:
+caseVec	read.cpp	/^    vector<Case> caseVec;$/;"	m	class:Event	file:
+collection	read.cpp	/^    void collection(vector<CollectionFile> *collecFileVec) {$/;"	f	class:CollectionAllData
+collection	read.cpp	/^    void collection(vector<Event> *eventVec, vector<string> *allAppNameVec) {$/;"	f	class:NetCDFoutput
+endDate	read.cpp	/^        DateTime *endDate;$/;"	m	class:NetCDFoutput::OneShut	file:
+endDate	read.cpp	/^    DateTime endDate;$/;"	m	class:CollectionAllData	file:
+eventVec	read.cpp	/^    vector<Event> *eventVec;$/;"	m	class:NetCDFoutput	file:
+findAppNamePoint	read.cpp	/^    int findAppNamePoint(Point::App *app, const string *appName) {$/;"	f	class:CollectionAllData
+findRate	read.cpp	/^        int findRate;$/;"	m	class:CollectionAllData::AppDetail	file:
+findTimes	read.cpp	/^        int findTimes;$/;"	m	class:CollectionAllData::AppDetail	file:
+getDateTimeCount	read.cpp	/^        static int getDateTimeCount(DateTime *dateTime) {$/;"	f	class:NetCDFoutput::OneShut
+getNcFileName	read.cpp	/^    char* getNcFileName(int mod) {$/;"	f	class:NetCDFoutput	file:
+getOom_adjStat	read.cpp	/^        int getOom_adjStat(int oom_adj) {$/;"	f	class:CollectionAllData::AppDetail
+getdir	read.cpp	/^int getdir(string dir, vector<string> &files) {$/;"	f
+inputPattSize	read.cpp	/^    int inputPattSize;        \/\/ OK 輸入資料的維度 (RGB:3)$/;"	m	class:NetCDFoutput	file:
+isCreat	read.cpp	/^        bool isCreat;   \/\/ true 的話 只有 nextApp 有東西$/;"	m	class:Event::Case	file:
+isNextScreenOn	read.cpp	/^    bool isNextScreenOn;$/;"	m	class:Event	file:
+isThisScreenOn	read.cpp	/^    bool isThisScreenOn;$/;"	m	class:Event	file:
+main	read.cpp	/^int main(int argc, char** argv) {$/;"	f
+makeAppDetail	read.cpp	/^    void makeAppDetail() {$/;"	f	class:CollectionAllData
+maxLabelLength	read.cpp	/^    int maxLabelLength;       \/\/    App's name 的最長長度$/;"	m	class:NetCDFoutput	file:
+maxTargStringLength	read.cpp	/^    int maxTargStringLength;  \/\/    targetLenghtVec 中的最大值$/;"	m	class:NetCDFoutput	file:
+namePoint	read.cpp	/^        int namePoint;$/;"	m	class:Event::Case	file:
+ncData	read.cpp	/^        float *ncData;$/;"	m	class:NetCDFoutput::OneShut	file:
+ncOutput	read.cpp	/^    void ncOutput() {$/;"	f	class:NetCDFoutput
+ncOutput2	read.cpp	/^    void ncOutput2() {$/;"	f	class:NetCDFoutput
+nextApp	read.cpp	/^        Point::App *nextApp;$/;"	m	class:Event::Case	file:
+nextDate	read.cpp	/^    DateTime *nextDate;$/;"	m	class:Event	file:
+numDims	read.cpp	/^    int numDims;              \/\/ OK 單筆資料的維度 (圖片:2)$/;"	m	class:NetCDFoutput	file:
+numLabels	read.cpp	/^    int numLabels;            \/\/    有多少個不同的 app 數量$/;"	m	class:NetCDFoutput	file:
+numSeqs	read.cpp	/^    int numSeqs;              \/\/    pattern量$/;"	m	class:NetCDFoutput	file:
+numTimesteps	read.cpp	/^    int numTimesteps;         \/\/    全部的資料量$/;"	m	class:NetCDFoutput	file:
+oneLearningTimeLong	read.cpp	/^    DateTime oneLearningTimeLong; \/\/ 一個學習資料的時間長度 (目前為24小時)$/;"	m	class:NetCDFoutput	file:
+oneNcDataLength	read.cpp	/^    int oneNcDataLength;$/;"	m	class:NetCDFoutput	file:
+oom_adjStat	read.cpp	/^        int oom_adjStat[41]; \/\/ 從-20~20 (不過目前只有-17~16)$/;"	m	class:CollectionAllData::AppDetail	file:
+pattern	read.cpp	/^    vector<OneShut> pattern;      \/\/ 將 eventVec 轉換完後$/;"	m	class:NetCDFoutput	file:
+startDate	read.cpp	/^        DateTime *startDate;$/;"	m	class:NetCDFoutput::OneShut	file:
+targetAppVec	read.cpp	/^        vector<Point::App*> targetAppVec;$/;"	m	class:NetCDFoutput::OneShut	file:
+thisApp	read.cpp	/^        Point::App *thisApp;$/;"	m	class:Event::Case	file:
+thisDate	read.cpp	/^    DateTime *thisDate;$/;"	m	class:Event	file:
+App	tool\CollectionFile.hpp	/^        App() {$/;"	f	class:Point::App
+App	tool\CollectionFile.hpp	/^    class App {$/;"	c	class:Point
+COLLECTION_FILE_HPP	tool\CollectionFile.hpp	2;"	d
+CollectionFile	tool\CollectionFile.hpp	/^class CollectionFile {$/;"	c
+Point	tool\CollectionFile.hpp	/^class Point {$/;"	c
+app	tool\CollectionFile.hpp	/^    App *app;$/;"	m	class:Point
+appNameVec	tool\CollectionFile.hpp	/^    vector<string> appNameVec;$/;"	m	class:CollectionFile
+appNum	tool\CollectionFile.hpp	/^    int appNum;$/;"	m	class:Point
+date	tool\CollectionFile.hpp	/^    DateTime date;$/;"	m	class:CollectionFile
+date	tool\CollectionFile.hpp	/^    DateTime date;$/;"	m	class:Point
+fileName	tool\CollectionFile.hpp	/^    string fileName;$/;"	m	class:CollectionFile
+getTime	tool\CollectionFile.hpp	/^    bool getTime(string dateTime) {$/;"	f	class:Point
+ground	tool\CollectionFile.hpp	/^        int ground;   \/\/ ground 是 -1 的話代表沒有資料$/;"	m	class:Point::App
+namePoint	tool\CollectionFile.hpp	/^        int namePoint;$/;"	m	class:Point::App
+oom_adj	tool\CollectionFile.hpp	/^        int oom_adj;  \/\/ oom_adj 是 -10000 的話代表沒有資料$/;"	m	class:Point::App
+oom_score	tool\CollectionFile.hpp	/^        int oom_score;$/;"	m	class:Point::App
+openFileAndRead	tool\CollectionFile.hpp	/^    bool openFileAndRead() {$/;"	f	class:CollectionFile
+operator <	tool\CollectionFile.hpp	/^    bool operator < (const CollectionFile &otherFile)const {$/;"	f	class:CollectionFile
+operator >	tool\CollectionFile.hpp	/^    bool operator > (const CollectionFile &otherFile)const {$/;"	f	class:CollectionFile
+output	tool\CollectionFile.hpp	/^        void output() {$/;"	f	class:Point::App
+output	tool\CollectionFile.hpp	/^        void output(const vector<string> *appNameVec) {$/;"	f	class:Point::App
+pattern	tool\CollectionFile.hpp	/^    list<Point> pattern;$/;"	m	class:CollectionFile
+phoneID	tool\CollectionFile.hpp	/^    string phoneID;$/;"	m	class:CollectionFile
+pid	tool\CollectionFile.hpp	/^        int pid;$/;"	m	class:Point::App
+screen	tool\CollectionFile.hpp	/^    bool screen;$/;"	m	class:Point
+setAllDateTime	tool\CollectionFile.hpp	/^    bool setAllDateTime() {$/;"	f	class:CollectionFile
+setAllDateTime	tool\CollectionFile.hpp	/^    bool setAllDateTime(string fileName) {$/;"	f	class:CollectionFile
+subCharArray	tool\CollectionFile.hpp	/^    string subCharArray(const char* charArray, int size, char subUnit, int whichData) {$/;"	f	class:CollectionFile
+totalPss	tool\CollectionFile.hpp	/^        int totalPss;$/;"	m	class:Point::App
+DATETIME_HPP	tool\DateTime.hpp	2;"	d
+DateTime	tool\DateTime.hpp	/^class DateTime {$/;"	c
+MonthDay	tool\DateTime.hpp	/^    int MonthDay() {$/;"	f	class:DateTime
+MonthDay	tool\DateTime.hpp	/^    int MonthDay(int month) {$/;"	f	class:DateTime
+WeekDay	tool\DateTime.hpp	/^    int WeekDay() {$/;"	f	class:DateTime
+day	tool\DateTime.hpp	/^    int day;$/;"	m	class:DateTime
+hour	tool\DateTime.hpp	/^    int hour;$/;"	m	class:DateTime
+initial	tool\DateTime.hpp	/^    void initial() {$/;"	f	class:DateTime
+minute	tool\DateTime.hpp	/^    int minute;$/;"	m	class:DateTime
+month	tool\DateTime.hpp	/^    int month;$/;"	m	class:DateTime
+operator -	tool\DateTime.hpp	/^    DateTime operator - (const DateTime &otherDate)const {$/;"	f	class:DateTime
+operator <	tool\DateTime.hpp	/^    bool operator < (const DateTime &otherDate)const {$/;"	f	class:DateTime
+operator >	tool\DateTime.hpp	/^    bool operator > (const DateTime &otherDate)const {$/;"	f	class:DateTime
+output	tool\DateTime.hpp	/^    void output() {$/;"	f	class:DateTime
+second	tool\DateTime.hpp	/^    int second;$/;"	m	class:DateTime
+setAllDateTime	tool\DateTime.hpp	/^    bool setAllDateTime(std::string fileDate) {$/;"	f	class:DateTime
+setDate	tool\DateTime.hpp	/^    bool setDate(std::string fileDate) {$/;"	f	class:DateTime
+year	tool\DateTime.hpp	/^    int year;$/;"	m	class:DateTime
+NUMERIC_HPP	tool\StringToNumber.hpp	2;"	d
+StringToNumber	tool\StringToNumber.hpp	/^bool StringToNumber(std::string numStr, int *num) {$/;"	f
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_PROGRAM_VERSION	5.8	//
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/

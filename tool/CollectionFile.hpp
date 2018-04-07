@@ -228,8 +228,13 @@ class CollectionFile {
             string appTotalPss = subCharArray(getLine, getLineSize, '|', index++);
             if (appTotalPss.size()!=0) {
               if (!StringToNumber(appTotalPss, &tempApp.totalPss)) {
-                cout << "(error) CollectionFile::openFileAndRead() appTotalPss: " << appTotalPss <<endl;
-                appDataGood = false;
+                // 可能只是 "沒有取得資料"
+                if (appTotalPss == "null") {
+                  tempApp.totalPss = -1;
+                } else {
+                  cout << "(error) CollectionFile::openFileAndRead() appTotalPss: " << appTotalPss <<endl;
+                  appDataGood = false;
+                }
               }
             } else {
               cout << "(error) CollectionFile::openFileAndRead() appTotalPss:NULL \n" << getLine <<endl;
